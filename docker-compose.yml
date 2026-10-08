@@ -1,0 +1,22 @@
+services:
+  mujoco_sim:
+    build: .
+    image: mujoco-ros2-jazzy:latest
+    container_name: mujoco_ros2_sim
+    stdin_open: true   # keep container alive / allow interactive shell
+    tty: true
+    volumes:
+      # Mount your workspace source so edits on the Mac show up instantly
+      # in the container without rebuilding the image each time.
+      - ./src:/root/ros2_ws/src
+    environment:
+      - RMW_IMPLEMENTATION=rmw_fastrtps_cpp
+      # - ROS_DISCOVERY_SERVER=192.168.1.50:11811   # set once you know the IP
+      - ROS_DOMAIN_ID=0   # must match the Jetson's ROS_DOMAIN_ID
+    # Docker Desktop on Mac can't do real host networking (macOS limitation),
+    # so we publish the DDS-relevant ports explicitly instead.
+    ports:
+      - "11811:11811/udp"   # discovery server, if you run one in this container
+      - "7400-7500:7400-7500/udp"  # typical DDS multicast/discovery range
+      - "8080:8080"         # web viewer (view_sim_web.py) -- open http://localhost:8080
+      - "9090:9090"         # rosbridge websocket -- native Mac <-> ROS2-in-Docker bridge
