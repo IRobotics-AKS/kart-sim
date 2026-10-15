@@ -1,0 +1,90 @@
+<!--
+  robot_world.xml -- a small two-wheeled robot with a forward-facing camera,
+  inside a walled room that also has one wall standing in the middle.
+
+  Robot
+    - differential drive: two motorized wheels + a front caster ball
+    - actuators "left_motor" / "right_motor" take a wheel speed in rad/s
+    - camera "front_cam" on the nose, looking straight ahead (level),
+      160x120 is what the bridge renders; height/FOV must match the
+      parameters in wall_detector.py (CAMERA_HEIGHT, CAMERA_FOVY)
+
+  World
+    - 5 m x 5 m room with red walls (the camera finds walls by their color)
+    - one interior wall in the middle of the room, right in the robot's path
+-->
+<mujoco model="wall_robot_world">
+  <compiler angle="degree"/>
+  <option timestep="0.002" integrator="implicitfast"/>
+
+  <visual>
+    <headlight ambient="0.35 0.35 0.35" diffuse="0.5 0.5 0.5" specular="0 0 0"/>
+    <global offwidth="640" offheight="480"/>
+    <quality shadowsize="2048"/>
+  </visual>
+
+  <asset>
+    <texture name="sky" type="skybox" builtin="gradient" rgb1="0.55 0.7 0.9" rgb2="0.95 0.95 1.0" width="256" height="256"/>
+    <texture name="floor_tex" type="2d" builtin="checker" rgb1="0.42 0.42 0.45" rgb2="0.52 0.52 0.55" width="300" height="300"/>
+    <material name="floor_mat" texture="floor_tex" texrepeat="10 10" reflectance="0.05"/>
+    <material name="wall_mat" rgba="0.80 0.22 0.15 1"/>
+    <material name="body_mat" rgba="0.15 0.40 0.85 1"/>
+    <material name="wheel_mat" rgba="0.12 0.12 0.12 1"/>
+    <material name="cam_mat" rgba="0.05 0.05 0.05 1"/>
+  </asset>
+
+  <default>
+    <default class="wall">
+      <geom type="box" material="wall_mat" friction="0.6 0.005 0.0001"/>
+    </default>
+  </default>
+
+  <worldbody>
+    <light name="sun" directional="true" pos="0 0 5" dir="-0.3 0.2 -1" diffuse="0.6 0.6 0.6" castshadow="true"/>
+    <geom name="floor" type="plane" size="3 3 0.1" material="floor_mat"/>
+
+    <!-- Room: 5 m x 5 m, walls 0.5 m tall, 0.1 m thick -->
+    <geom name="wall_north" class="wall" pos="0  2.55 0.25" size="2.6 0.05 0.25"/>
+    <geom name="wall_south" class="wall" pos="0 -2.55 0.25" size="2.6 0.05 0.25"/>
+    <geom name="wall_east"  class="wall" pos=" 2.55 0 0.25" size="0.05 2.5 0.25"/>
+    <geom name="wall_west"  class="wall" pos="-2.55 0 0.25" size="0.05 2.5 0.25"/>
+
+    <!-- The wall in the middle of the room, straight ahead of the robot's start -->
+    <geom name="wall_middle" class="wall" pos="0.6 0 0.25" size="0.05 1.0 0.25"/>
+
+    <!-- ===================== Robot ===================== -->
+    <body name="robot" pos="-1.6 0 0.05">
+      <freejoint name="robot_free"/>
+
+      <!-- Chassis -->
+      <geom name="chassis" type="box" pos="0.03 0 0.03" size="0.13 0.09 0.035" material="body_mat" mass="2.0"/>
+      <!-- Front caster ball (nearly frictionless so it just slides along) -->
+      <geom name="caster" type="sphere" pos="0.12 0 -0.025" size="0.025" rgba="0.6 0.6 0.6 1"
+            mass="0.05" priority="1" friction="0.001 0.001 0.0001"/>
+
+      <!-- Camera: a small dark box on the nose, plus the actual MuJoCo camera.
+           xyaxes "0 -1 0  0 0 1": image-right = robot's right, image-up = up,
+           so the camera looks straight forward along the robot's +x. -->
+      <geom name="camera_housing" type="box" pos="0.15 0 0.08" size="0.012 0.025 0.015"
+            material="cam_mat" contype="0" conaffinity="0" mass="0.01"/>
+      <camera name="front_cam" pos="0.165 0 0.09" xyaxes="0 -1 0 0 0 1" fovy="60"/>
+
+      <body name="left_wheel" pos="0 0.115 0">
+        <joint name="left_wheel_joint" type="hinge" axis="0 1 0" damping="0.01"/>
+        <geom type="cylinder" size="0.05 0.015" euler="90 0 0" material="wheel_mat"
+              friction="1.5 0.005 0.0001" mass="0.15"/>
+      </body>
+      <body name="right_wheel" pos="0 -0.115 0">
+        <joint name="right_wheel_joint" type="hinge" axis="0 1 0" damping="0.01"/>
+        <geom type="cylinder" size="0.05 0.015" euler="90 0 0" material="wheel_mat"
+              friction="1.5 0.005 0.0001" mass="0.15"/>
+      </body>
+    </body>
+  </worldbody>
+
+  <!-- Wheel speed controllers: ctrl = target wheel speed in rad/s -->
+  <actuator>
+    <velocity name="left_motor"  joint="left_wheel_joint"  kv="1.0" ctrlrange="-20 20" forcerange="-3 3"/>
+    <velocity name="right_motor" joint="right_wheel_joint" kv="1.0" ctrlrange="-20 20" forcerange="-3 3"/>
+  </actuator>
+</mujoco>

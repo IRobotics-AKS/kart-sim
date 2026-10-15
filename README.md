@@ -14,6 +14,38 @@ A simulation environment split across two sides, bridged over a WebSocket:
 MuJoCo (native, Mac)  <-- WebSocket :9090 -->  rosbridge (Docker)  <-->  ROS 2 Jazzy nodes (Docker)
 ```
 
+## Quick start
+
+Double-click **`run.command`** in Finder (or run `./run.command` in Terminal).
+It starts Docker, the container, rosbridge, the ROS 2 node, and the native
+MuJoCo window; closing the window stops it all.
+
+By default it runs the **camera robot**: a small two-wheeled robot in a
+walled room (with one wall in the middle). Its front camera streams to a
+ROS 2 node in Docker, which spots walls and turns the robot away from them.
+The viewer follows the robot and shows its camera view in the top-right corner.
+
+- Edits to `.py` / `.xml` files show up the next time you run it -- nothing to compile.
+- If the `Dockerfile` or `entrypoint.sh` changed, it rebuilds the image automatically.
+- First run installs `mujoco` + `roslibpy` on the Mac if they're missing.
+- Options: `--arm` (the original arm demo), `--no-demo` (skip the ROS 2 node),
+  `--web` (arm demo in the browser at `localhost:8080`).
+- The ROS 2 node's output goes to `logs/wall_avoider.log` (robot) or `logs/demo_node.log` (arm).
+
+### How the camera robot works
+
+```
+MuJoCo (Mac)                          rosbridge             ROS 2 (Docker)
+robot_ros_bridge.py --/camera/image_raw (160x120, 10 Hz)--> wall_avoider_node.py
+   wheels  <---------------- /cmd_vel (Twist) --------------  uses wall_detector.py
+```
+
+`wall_detector.py` finds the red wall pixels in each frame and estimates how
+far away the wall is from where it meets the floor in the image (the camera is
+level at a known height). Wall ahead closer than 0.65 m: stop and turn toward
+the more open side until the way is clear. Tuning numbers (speed, turn rate,
+distances) are at the top of the `WallAvoider` class.
+
 ## What's in this folder
 
 | Path | Runs where | Purpose |
@@ -21,6 +53,10 @@ MuJoCo (native, Mac)  <-- WebSocket :9090 -->  rosbridge (Docker)  <-->  ROS 2 J
 | `Dockerfile` | -- | Builds the ROS 2 Jazzy + MuJoCo + rosbridge image |
 | `docker-compose.yml` | -- | Starts the container with the right ports/env |
 | `entrypoint.sh` | in Docker | Sources ROS 2 on container start |
+| `src/sim_demo/robot_world.xml` | on the Mac | MuJoCo world: walled room + middle wall + two-wheeled robot with a front camera |
+| `src/sim_demo/wall_detector.py` | in Docker | Finds walls in a camera image and decides how to drive (plain numpy) |
+| `src/sim_demo/wall_avoider_node.py` | in Docker | ROS 2 node: `/camera/image_raw` in, `/cmd_vel` out |
+| `native/robot_ros_bridge.py` | **on the Mac** | Runs the robot world in MuJoCo's viewer, streams the camera, drives the wheels |
 | `src/sim_demo/test_scene.xml` | in Docker | MuJoCo model: a two-link motor-driven arm |
 | `src/sim_demo/ros2_demo_node.py` | in Docker | Demo ROS 2 node: sends torque commands, prints joint states |
 | `src/sim_demo/view_sim_web.py` | in Docker | Optional: browser-based MJPEG viewer at `localhost:8080`, no Mac-side script needed |

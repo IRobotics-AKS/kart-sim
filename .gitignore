@@ -12,3 +12,6 @@ log/
 
 # The distribution zip (regenerate, don't commit)
 *.zip
+
+# run.command output
+logs/
