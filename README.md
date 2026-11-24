@@ -16,6 +16,12 @@ MuJoCo (native, Mac)  <-- WebSocket :9090 -->  rosbridge (Docker)  <-->  ROS 2 J
 
 ## Quick start
 
+**Linux:** run `./run.command`. It needs Docker access (`sudo usermod -aG docker $USER`,
+then log in again), adds `docker-compose.linux.yml` (host networking), and creates
+`.venv` with `mujoco`, `roslibpy`, `numpy` on first run. No `mjpython` needed.
+
+**macOS:**
+
 Double-click **`run.command`** in Finder (or run `./run.command` in Terminal).
 It starts Docker, the container, rosbridge, the ROS 2 node, and the native
 MuJoCo window; closing the window stops it all.

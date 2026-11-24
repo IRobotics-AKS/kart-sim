@@ -1,0 +1,8 @@
+# Linux override (run.command adds it automatically on Linux):
+#   docker compose -f docker-compose.yml -f docker-compose.linux.yml up -d
+# Native Linux Docker supports real host networking, so DDS discovery and
+# rosbridge (:9090) / web viewer (:8080) are reachable without port mapping.
+services:
+  mujoco_sim:
+    network_mode: host
+    ports: !reset []
