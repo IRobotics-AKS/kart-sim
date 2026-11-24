@@ -15,3 +15,7 @@ log/
 
 # run.command output
 logs/
+
+# Linux native-side env and MuJoCo runtime log
+.venv/
+MUJOCO_LOG.TXT

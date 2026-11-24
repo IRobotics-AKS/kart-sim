@@ -30,8 +30,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 # MuJoCo's Python bindings (pip package, works fine inside Linux container)
 # --ignore-installed avoids pip trying (and failing) to uninstall the
 # apt-installed numpy, which has no RECORD file for pip to work with.
+# Keep MUJOCO_VERSION in sync with the mujoco pin in pyproject.toml.
+ARG MUJOCO_VERSION=4.0.1
 RUN pip3 install --no-cache-dir --break-system-packages --ignore-installed \
-    mujoco \
+    mujoco==${MUJOCO_VERSION} \
     numpy \
     scipy \
     flask \

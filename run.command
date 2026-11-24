@@ -29,6 +29,15 @@ CONTAINER="mujoco_ros2_sim"
 LOG_DIR="$ROOT/logs"
 mkdir -p "$LOG_DIR"
 
+# macOS: Docker Desktop + mjpython.  Linux: native Docker with host
+# networking (docker-compose.linux.yml) + a local .venv for the MuJoCo side.
+OS="$(uname -s)"
+if [ "$OS" = "Linux" ]; then
+  export COMPOSE_FILE="docker-compose.yml:docker-compose.linux.yml"
+  VENV="$ROOT/.venv"
+fi
+open_url() { if [ "$OS" = "Linux" ]; then xdg-open "$1" >/dev/null 2>&1; else open "$1"; fi; }
+
 # Finder-launched scripts get a minimal PATH -- add the usual install spots.
 export PATH="/usr/local/bin:/opt/homebrew/bin:$HOME/.docker/bin:/Applications/Docker.app/Contents/Resources/bin:$PATH"
 for d in "$HOME"/Library/Python/*/bin; do [ -d "$d" ] && PATH="$d:$PATH"; done
@@ -62,7 +71,13 @@ stop_ros_procs() {
 
 # --- 1. Docker Desktop ----------------------------------------------------
 command -v docker >/dev/null 2>&1 || fail "docker not found. Install Docker Desktop and open it once."
-if ! docker info >/dev/null 2>&1; then
+if [ "$OS" = "Linux" ]; then
+  if ! docker ps >/dev/null 2>&1; then
+    docker ps 2>&1 | grep -qi "permission denied" \
+      && fail "No permission to use Docker. Run: sudo usermod -aG docker \$USER  then log out and back in."
+    fail "Docker daemon isn't running. Start it with: sudo systemctl start docker"
+  fi
+elif ! docker info >/dev/null 2>&1; then
   say "Starting Docker Desktop..."
   open -a Docker 2>/dev/null || fail "Couldn't open Docker Desktop."
   for _ in $(seq 1 90); do docker info >/dev/null 2>&1 && break; sleep 2; done
@@ -79,12 +94,19 @@ docker compose up -d --build || fail "docker compose up failed (see above)."
 # --- Web-viewer mode: no rosbridge / native side needed ---------------------
 if [ "$MODE" = "web" ]; then
   say "Starting browser viewer -> http://localhost:8080   (Ctrl+C to stop)"
-  ( sleep 4; open "http://localhost:8080" ) &
+  ( sleep 4; open_url "http://localhost:8080" ) &
   docker exec -it "$CONTAINER" python3 /root/ros2_ws/src/sim_demo/view_sim_web.py
   exit 0
 fi
 
 # --- Native-mode prerequisites (check before starting anything) ------------
+if [ "$OS" = "Linux" ]; then
+  # Linux needs no mjpython: plain Python runs the passive viewer.
+  MJPYTHON="$VENV/bin/python"
+  command -v uv >/dev/null 2>&1 || fail "uv not found. Install it: https://docs.astral.sh/uv/"
+  say "Syncing .venv from pyproject.toml / uv.lock..."
+  uv sync --frozen -q || fail "uv sync failed (see above)."
+else
 MJPYTHON="$(command -v mjpython 2>/dev/null || true)"
 if [ -z "$MJPYTHON" ]; then
   CAND="$(python3 -c 'import os,sys;print(os.path.join(os.path.dirname(sys.executable),"mjpython"))' 2>/dev/null)"
@@ -92,8 +114,8 @@ if [ -z "$MJPYTHON" ]; then
 fi
 if [ -z "$MJPYTHON" ] || ! "$MJPYTHON" -c "import roslibpy" 2>/dev/null; then
   say "Installing Mac-side Python packages (mujoco, roslibpy) -- one time only..."
-  python3 -m pip install --user mujoco roslibpy \
-    || python3 -m pip install --user --break-system-packages mujoco roslibpy \
+  python3 -m pip install --user "mujoco==4.0.1" roslibpy \
+    || python3 -m pip install --user --break-system-packages "mujoco==4.0.1" roslibpy \
     || fail "pip install mujoco roslibpy failed."
   for d in "$HOME"/Library/Python/*/bin; do [ -d "$d" ] && PATH="$d:$PATH"; done
   MJPYTHON="$(command -v mjpython 2>/dev/null || true)"
@@ -103,6 +125,7 @@ if [ -z "$MJPYTHON" ] || ! "$MJPYTHON" -c "import roslibpy" 2>/dev/null; then
   fi
   [ -n "$MJPYTHON" ] || fail "Installed mujoco, but couldn't find mjpython."
   "$MJPYTHON" -c "import roslibpy" 2>/dev/null || fail "roslibpy isn't visible to mjpython."
+fi
 fi
 
 # From here on, always clean up the ROS processes on exit.
