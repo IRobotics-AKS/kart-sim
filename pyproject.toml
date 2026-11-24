@@ -1,0 +1,16 @@
+[project]
+name = "kart-sim"
+version = "0.1.0"
+description = "Native MuJoCo side of the MuJoCo + ROS 2 (Docker) simulation"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    # Keep in sync with MUJOCO_VERSION in the Dockerfile.
+    "mujoco==4.0.1",
+    "numpy>=2.5",
+    "roslibpy>=2.1",
+]
+
+[tool.uv]
+# Scripts in native/ are run directly; nothing to build or install.
+package = false
